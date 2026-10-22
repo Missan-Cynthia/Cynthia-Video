@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = path.dirname(fileURLToPath(import.meta.url));
-const assets = ['app.js','style.css','sw.js','manifest.webmanifest','icon-192.png','icon-512.png','firebase-settings.js','firebase-shared.js','firebase-client.js','firebase-stream.js','firebase-catalog.js','update.html','update.js'];
+const assets = ['diagnostics.html','diagnostics.js','app.js','style.css','sw.js','manifest.webmanifest','icon-192.png','icon-512.png','firebase-settings.js','firebase-shared.js','firebase-client.js','firebase-stream.js','firebase-catalog.js','update.html','update.js'];
 export async function startFirebaseDev(options = {}) {
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
