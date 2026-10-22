@@ -1,4 +1,4 @@
-import {createFirebaseClient} from './firebase-client.js?diagnostic=1';
+import {createFirebaseClient} from './firebase-client.js?diagnostic=2';
 const output=document.getElementById('result'),button=document.getElementById('run');
 const line=text=>{output.textContent+=text+'\n';};
 let client;
@@ -22,8 +22,5 @@ button.onclick=async()=>{
    if(!response.ok)line('伺服器訊息：'+(await response.text()).slice(0,500));else await response.body?.cancel();
   }catch(error){line(label+'：'+error.name+' '+error.message);}finally{clearTimeout(timer);}
  }
- line('官方 SDK 小範圍讀取：測試中（最多約 15 秒）…');
- try{const blob=await client.videoBlob(item.path,true);line('官方 SDK 小範圍讀取：成功，'+blob.size+' bytes');}
- catch(error){line('官方 SDK 小範圍讀取：'+(error.code||error.name)+' '+error.message);}
  line('測試結束。請將以上結果貼回聊天。');button.disabled=false;
 };

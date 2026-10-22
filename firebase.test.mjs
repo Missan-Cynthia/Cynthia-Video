@@ -86,7 +86,7 @@ test('雲端缺少封面時擷取影片畫面，保留登入範圍且重用記�
  posters.clear();context.firebaseClient.user=null;assert.equal(await context.makeThumbnail(item),null);assert.equal(created,1);
 });
 
-test('串流 503 轉用 SDK Blob 播放，401/403 不繞過授權',async()=>{
+test('串流失敗顯示真實錯誤，不整部下載或繞過權限',async()=>{
  const source=await readFile(new URL('./public/app.js',import.meta.url),'utf8');
  const fn=source.slice(source.indexOf('async function playVideo('),source.indexOf('function stop('));
  for(const status of [503,403]){
@@ -94,7 +94,7 @@ test('串流 503 轉用 SDK Blob 播放，401/403 不繞過授權',async()=>{
   let reads=0;const v={id:'test',path:'video/a.mp4',title:'test'};
   const context={cloudMode:true,navigator:{onLine:true,serviceWorker:{controller:{}}},firebaseClient:{user:{uid:'test'},videoBlob:async()=>{reads++;return new Blob(['video']);}},say(){},stop(){},media:()=>'/media',favorites:new Set(),videos:[v],currentVideo:null,authEpoch:1,fallbackPlaybackURL:null,URL,fetch:async()=>new Response('failure',{status}),$:el};
   vm.runInNewContext(fn,context);await context.playVideo(v);
-  assert.equal(reads,status===503?1:0);
-  if(status===503)URL.revokeObjectURL(context.fallbackPlaybackURL);else assert.match(el('playStatus').textContent,/HTTP 403/);
+  assert.equal(reads,0);
+  assert.ok(el('playStatus').textContent.includes('HTTP '+status));
  }
 });
