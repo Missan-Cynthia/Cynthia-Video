@@ -29,7 +29,9 @@
       const range = event.request.headers.get('Range');
       if (range) headers.set('Range', range);
       // 不帶 Firebase download token、不緩衝整部影片、不寫入 Cache Storage。
-      return fetch(endpoint, { headers, cache: 'no-store', credentials: 'omit', redirect: 'follow', signal: event.request.signal });
+      // Firebase CORS only permits its documented request headers. Avoid browser-generated
+      // Cache-Control/Pragma request headers; the returned media response remains no-store.
+      return fetch(endpoint, { headers, credentials: 'omit', redirect: 'follow', signal: event.request.signal });
     }
     try {
       let upstream = await request(token);

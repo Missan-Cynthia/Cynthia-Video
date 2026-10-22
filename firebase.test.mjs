@@ -34,7 +34,7 @@ async function makeStream({signedIn=true,clientPresent=true,upstreamStatus=206,t
 }
 test('受保護串流：保留 Range、只往固定 bucket、憑證不放 URL、不快取影片',async()=>{
  const {response,requests}=await makeStream();assert.equal(response.status,206);assert.equal(await response.text(),'234');assert.equal(response.headers.get('Cache-Control'),'no-store');assert.equal(response.headers.get('Content-Range'),'bytes 2-4/10');
- assert.equal(requests.length,1);assert.match(requests[0].url,/enlightenment-2[.]firebasestorage[.]app/);assert.doesNotMatch(requests[0].url,/token=/);assert.equal(requests[0].options.headers.get('Authorization'),'Firebase test-id-token');assert.equal(requests[0].options.headers.get('Range'),'bytes=2-4');assert.equal(requests[0].options.cache,'no-store');
+ assert.equal(requests.length,1);assert.match(requests[0].url,/enlightenment-2[.]firebasestorage[.]app/);assert.doesNotMatch(requests[0].url,/token=/);assert.equal(requests[0].options.headers.get('Authorization'),'Firebase test-id-token');assert.equal(requests[0].options.headers.get('Range'),'bytes=2-4');assert.equal(requests[0].options.cache,undefined);assert.equal(requests[0].options.headers.has('Cache-Control'),false);assert.equal(requests[0].options.headers.has('Pragma'),false);
 });
 test('受保護串流：未登入、不存在視窗、拒絕讀取及缺檔皆失敗關閉',async()=>{
  for(const options of [{signedIn:false},{clientPresent:false}]){const r=await makeStream(options);assert.equal(r.response.status,401);assert.equal(r.requests.length,0);}
