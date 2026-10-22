@@ -46,7 +46,7 @@
     } catch (error) {
       if(error.name === 'AbortError' || event.request.signal?.aborted) return failure(499, '已取消載入');
       report(client, 503, path, error.name + ': ' + error.message);
-      return failure(503, '雲端檔案讀取失敗，請檢查跨來源設定與連線');
+      return failure(503, '雲端檔案讀取失敗：' + error.name + ': ' + error.message);
     }
   }
   globalThis.KidsTubeStream = Object.freeze({ stream });
