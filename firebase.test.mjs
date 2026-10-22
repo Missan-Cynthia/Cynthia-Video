@@ -71,3 +71,17 @@ test('GitHub Pages 子目錄：媒體路徑及 Worker 快取使用網站範圍',
  let response;handlers.fetch({request:{url:'https://kids.test'+media,method:'GET'},respondWith:r=>response=r});
  assert.equal(streamed,true);assert.equal(await response.text(),'ok');
 });
+
+test('雲端缺少封面時擷取影片畫面，保留登入範圍且重用記憶體縮圖',async()=>{
+ const source=await readFile(new URL('./public/app.js',import.meta.url),'utf8');
+ const fn=source.slice(source.indexOf('async function makeThumbnail('),source.indexOf('function pumpThumbs('));
+ let created=0;const posters=new Map();
+ const context={Response,cloudMode:true,authEpoch:1,cloudPosters:posters,firebaseClient:{user:{uid:'test'}},navigator:{onLine:true,serviceWorker:{controller:{}}},cloudThumbnail:async v=>posters.get(v.id+':'+v.generation)?.clone()||null,media:()=>'/Cynthia-Video/public/_firebase/media/test.mp4',setTimeout,clearTimeout,document:{createElement(type){
+  if(type==='canvas')return {getContext:()=>({drawImage(){}}),toBlob:callback=>callback(new Blob(['jpeg'],{type:'image/jpeg'}))};
+  created++;return {duration:12,videoWidth:640,videoHeight:360,removeAttribute(){},load(){},set src(value){queueMicrotask(()=>this.onloadedmetadata());},set currentTime(value){queueMicrotask(()=>this.onseeked());}};
+ }}};
+ vm.runInNewContext(fn,context);const item={id:'firebase:test',generation:'1'};
+ const result=await context.makeThumbnail(item);assert.equal(result.headers.get('Content-Type'),'image/jpeg');assert.equal(result.headers.get('X-Duration'),'12');
+ assert.equal(await (await context.makeThumbnail(item)).text(),'jpeg');assert.equal(created,1);
+ posters.clear();context.firebaseClient.user=null;assert.equal(await context.makeThumbnail(item),null);assert.equal(created,1);
+});

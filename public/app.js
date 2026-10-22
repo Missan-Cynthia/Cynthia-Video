@@ -17,16 +17,26 @@ function toggleFavorite(v){if(favorites.has(v.id))favorites.delete(v.id);else fa
 const thumbCache='kt-thumbnails-v1',thumbQueue=[];let thumbActive=0;const objectURLs=new Set();
 function thumbKey(v){return '/thumbnail/'+v.id;}
 async function makeThumbnail(v){
- if(cloudMode)return cloudThumbnail(v);
- const cache=await caches.open(thumbCache),hit=await cache.match(thumbKey(v));if(hit)return hit;
- if(!navigator.onLine&&!downloaded.has(media(v)))return null;
+ const epoch=authEpoch;
+ let cache;
+ if(cloudMode){
+  const poster=await cloudThumbnail(v);if(poster)return poster;
+  if(!firebaseClient?.user||!navigator.onLine||!navigator.serviceWorker.controller)return null;
+ }else{
+  cache=await caches.open(thumbCache);const hit=await cache.match(thumbKey(v));if(hit)return hit;
+  if(!navigator.onLine&&!downloaded.has(media(v)))return null;
+ }
  const result=await new Promise(resolve=>{const video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='metadata';let finished=false;const timer=setTimeout(()=>finish(null),12000);
   function finish(data){if(finished)return;finished=true;clearTimeout(timer);video.removeAttribute('src');video.load();resolve(data);}
-  video.onloadedmetadata=()=>{if(!Number.isFinite(video.duration)||!video.duration){finish(null);return;}video.currentTime=Math.min(1,video.duration/3);};
+  video.onloadedmetadata=()=>{if((cloudMode&&epoch!==authEpoch)||!Number.isFinite(video.duration)||!video.duration){finish(null);return;}video.currentTime=Math.min(1,video.duration/3);};
   video.onseeked=()=>{try{const canvas=document.createElement('canvas');canvas.width=480;canvas.height=Math.round(480*video.videoHeight/video.videoWidth)||270;canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);const duration=Math.floor(video.duration);canvas.toBlob(blob=>finish(blob?{blob,duration}:null),'image/jpeg',.8);}catch{finish(null);}};
   video.onerror=()=>finish(null);video.src=media(v);
  });
- if(!result)return null;const response=new Response(result.blob,{headers:{'Content-Type':'image/jpeg','X-Duration':String(result.duration)}});try{await cache.put(thumbKey(v),response.clone());}catch{}return response;
+ if(!result||(cloudMode&&epoch!==authEpoch))return null;
+ const response=new Response(result.blob,{headers:{'Content-Type':'image/jpeg','X-Duration':String(result.duration)}});
+ if(cloudMode)cloudPosters.set(v.id+':'+v.generation,response.clone());
+ else try{await cache.put(thumbKey(v),response.clone());}catch{}
+ return response;
 }
 function pumpThumbs(){while(thumbActive<2&&thumbQueue.length){const job=thumbQueue.shift();if(!job.target.isConnected)continue;thumbActive++;makeThumbnail(job.video).then(async response=>{if(!response||!job.target.isConnected)return;const url=URL.createObjectURL(await response.blob());objectURLs.add(url);const image=document.createElement('img');image.alt='';image.src=url;job.target.querySelector('.thumb-placeholder')?.replaceWith(image);const seconds=Number(response.headers.get('X-Duration'));if(Number.isFinite(seconds)&&seconds>0){const time=document.createElement('span');time.className='duration';time.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');job.target.append(time);}}).catch(()=>{}).finally(()=>{thumbActive--;pumpThumbs();});}}
 const thumbObserver=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){thumbObserver.unobserve(entry.target);thumbQueue.push({target:entry.target,video:entry.target.videoData});pumpThumbs();}},{rootMargin:'150px'});
