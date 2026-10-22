@@ -64,7 +64,7 @@ test('GitHub Pages 子目錄：媒體路徑及 Worker 快取使用網站範圍',
  assert.equal(cloud.parseMediaPath(new URL(media,'https://kids.test')),'video/中文 #.mp4');
  assert.equal(cloud.parseMediaPath(new URL('https://kids.test/_firebase/media/a.mp4')),null);
  const handlers={},cached=[];let streamed=false;
- const sw={URL,Response,importScripts:()=>{},self:{location:{href:'https://kids.test/Cynthia-Video/public/sw.js',origin:'https://kids.test'},addEventListener:(name,fn)=>handlers[name]=fn},caches:{open:async()=>({addAll:async assets=>cached.push(...assets)})},KidsTubeStream:{stream:()=>{streamed=true;return new Response('ok');}}};
+ const sw={URL,Response,Request:class extends Request{constructor(url,options){super(new URL(url,'https://kids.test'),options);}},importScripts:()=>{},self:{location:{href:'https://kids.test/Cynthia-Video/public/sw.js',origin:'https://kids.test'},addEventListener:(name,fn)=>handlers[name]=fn},caches:{open:async()=>({addAll:async assets=>cached.push(...assets.map(request=>new URL(request.url).pathname))})},KidsTubeStream:{stream:()=>{streamed=true;return new Response('ok');}}};
  vm.runInNewContext(await readFile(new URL('./public/sw.js',import.meta.url),'utf8'),sw);
  await new Promise((resolve,reject)=>handlers.install({waitUntil:p=>p.then(resolve,reject)}));
  assert.ok(cached.length>5);assert.ok(cached.every(path=>path.startsWith('/Cynthia-Video/public/')));
