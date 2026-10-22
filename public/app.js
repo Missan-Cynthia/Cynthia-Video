@@ -75,9 +75,18 @@ async function sync(reorder=false){
 async function playVideo(v){
  if(cloudMode){if(!navigator.onLine){say('目前離線；這次雲端版本僅支援線上播放。');return;}if(!firebaseClient?.user){say('請家長先登入。');return;}if(!navigator.serviceWorker.controller){say('播放服務準備中，請關閉所有 KidsTube 視窗後重新開啟。');return;} }
 if(!navigator.onLine&&!downloaded.has(media(v))){say('這部尚未下載，連上網路後再觀看。');return;}
- currentVideo=v;$('favoritePlaying').textContent=favorites.has(v.id)?'已收藏 ✓':'收藏影片';$('recommendations').replaceChildren();videos.filter(item=>item.id!==v.id).slice(0,8).forEach(item=>$('recommendations').append(createCard(item)));$('playing').textContent=v.title;$('playStatus').textContent='';$('video').src=media(v);if(!$('player').open)$('player').showModal();try{await $('video').play();}catch{$('playStatus').textContent='請按播放器的播放鍵；若無法播放，請檢查網路或 MP4 編碼。';}}
+ currentVideo=v;$('favoritePlaying').textContent=favorites.has(v.id)?'已收藏 ✓':'收藏影片';$('recommendations').replaceChildren();videos.filter(item=>item.id!==v.id).slice(0,8).forEach(item=>$('recommendations').append(createCard(item)));$('playing').textContent=v.title;$('playStatus').textContent='';if(!$('player').open)$('player').showModal();
+ if(cloudMode){
+  try{
+   const probe=await fetch(media(v),{headers:{Range:'bytes=0-0'},cache:'no-store'});
+   if(!probe.ok){const detail=await probe.text();$('playStatus').textContent='影片讀取失敗（HTTP '+probe.status+'）：'+detail.slice(0,180);return;}
+   await probe.body?.cancel();
+  }catch(error){$('playStatus').textContent='影片連線失敗：'+error.message;return;}
+  if(currentVideo!==v||!$('player').open)return;
+ }
+ $('video').src=media(v);try{await $('video').play();}catch{if(!$('playStatus').textContent)$('playStatus').textContent='請按播放器的播放鍵；若仍失敗，請提供下方錯誤訊息。';}}
 function stop(){$('video').pause();$('video').removeAttribute('src');$('video').load();}
-$('closePlayer').onclick=()=>$('player').close();$('player').addEventListener('close',()=>{stop();if(pendingSync){pendingSync=false;sync(true);}});$('video').onerror=()=>{$('playStatus').textContent=cloudMode?'播放失敗，請確認網路、帳號權限及影片是否仍存在；影片需使用裝置支援的 H.264／AAC 編碼。':'播放失敗。請確認影片已完整下載，或連線重試。建議使用 H.264 + AAC MP4。';};
+$('closePlayer').onclick=()=>$('player').close();$('player').addEventListener('close',()=>{stop();if(pendingSync){pendingSync=false;sync(true);}});$('video').onerror=()=>{if($('playStatus').textContent.includes('HTTP '))return;$('playStatus').textContent=cloudMode?'影片解碼失敗（MediaError '+($('video').error?.code||'未知')+'）：'+($('video').error?.message||'請確認影片使用 H.264／AAC 編碼。'):'播放失敗。請確認影片已完整下載，或連線重試。建議使用 H.264 + AAC MP4。';};
 function selectView(name){view=name;onlyOffline=name==='downloads';recent=false;query='';$('search').value='';render();window.scrollTo({top:0,behavior:'smooth'});}
 $('home').onclick=()=>selectView('home');$('favorites').onclick=()=>selectView('favorites');$('downloads').onclick=()=>selectView('downloads');$('menu').onclick=()=>document.body.classList.toggle('compact');
 $('all').onclick=()=>{onlyOffline=false;recent=false;render();};$('offline').onclick=()=>{onlyOffline=true;recent=false;render();};$('recent').onclick=()=>{recent=true;onlyOffline=false;render();};$('sync').onclick=()=>sync(true);
