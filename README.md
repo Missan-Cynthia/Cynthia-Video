@@ -1,3 +1,11 @@
+# Cynthia Video
+
+線上使用：https://missan-cynthia.github.io/Cynthia-Video/
+
+GitHub Pages 首頁會自動開啟 public/ 的 Firebase 影片介面。請由家長登入後讀取雲端片庫；此模式僅支援線上播放。若出現授權網域錯誤，請在 Firebase Authentication 設定加入 missan-cynthia.github.io；Storage CORS 的來源也須允許 https://missan-cynthia.github.io。
+
+以下包含舊版 Node 本機模式文件；其中離線下載與本機上傳說明不適用於 Firebase 模式。
+
 # KidsTube 小小放映室
 
 > 目前預設已升級為 Firebase 線上模式。請先閱讀 **[Firebase 本機串接指南](FIREBASE-SETUP.md)**；下方原 Node 硬碟後端說明保留作為歷史參考，不能當作新版的必要設定。新版直接 `node server.mjs`，不需要 ADMIN_PASSWORD_HASH。

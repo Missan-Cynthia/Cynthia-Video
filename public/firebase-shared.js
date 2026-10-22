@@ -1,5 +1,6 @@
 /* 無網路副作用的共用規則：供瀏覽器、Service Worker 與測試使用。 */
 (() => {
+  const basePath = globalThis.location ? new URL('./', globalThis.location.href).pathname : '/';
   const bucket = 'enlightenment-2.firebasestorage.app';
   const validPath = value => typeof value === 'string' && value.length > 0 && value.length < 1024 &&
     !value.startsWith('/') && !value.endsWith('/') && !value.includes('//') &&
@@ -8,10 +9,10 @@
   const isPoster = path => validPath(path) && /\.(jpg|jpeg|png|webp)$/i.test(path);
   function mediaURL(path, generation = '') {
     if (!isVideo(path) && !isPoster(path)) throw Error('不支援的影片或封面路徑');
-    return '/_firebase/media/' + encodeURIComponent(path) + (generation ? '?v=' + encodeURIComponent(generation) : '');
+    return basePath + '_firebase/media/' + encodeURIComponent(path) + (generation ? '?v=' + encodeURIComponent(generation) : '');
   }
   function parseMediaPath(url) {
-    const prefix = '/_firebase/media/';
+    const prefix = basePath + '_firebase/media/';
     if (!url.pathname.startsWith(prefix)) return null;
     let path; try { path = decodeURIComponent(url.pathname.slice(prefix.length)); } catch { return null; }
     return isVideo(path) || isPoster(path) ? path : null;

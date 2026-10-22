@@ -53,3 +53,21 @@ test('Firebase 本機伺服器不暴露原始 MP4、舊片單或本機管理 API
  assert.equal((await fetch(base+'/_firebase/media/video%2Ffile.mp4')).status,503);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
+
+test('GitHub Pages 子目錄：媒體路徑及 Worker 快取使用網站範圍',async()=>{
+ const source=await readFile(new URL('./public/firebase-shared.js',import.meta.url),'utf8');
+ const context={URL,location:{href:'https://kids.test/Cynthia-Video/public/'}};
+ vm.runInNewContext(source,context);
+ const cloud=context.KidsTubeCloud;
+ const media=cloud.mediaURL('video/中文 #.mp4');
+ assert.ok(media.startsWith('/Cynthia-Video/public/_firebase/media/'));
+ assert.equal(cloud.parseMediaPath(new URL(media,'https://kids.test')),'video/中文 #.mp4');
+ assert.equal(cloud.parseMediaPath(new URL('https://kids.test/_firebase/media/a.mp4')),null);
+ const handlers={},cached=[];let streamed=false;
+ const sw={URL,Response,importScripts:()=>{},self:{location:{href:'https://kids.test/Cynthia-Video/public/sw.js',origin:'https://kids.test'},addEventListener:(name,fn)=>handlers[name]=fn},caches:{open:async()=>({addAll:async assets=>cached.push(...assets)})},KidsTubeStream:{stream:()=>{streamed=true;return new Response('ok');}}};
+ vm.runInNewContext(await readFile(new URL('./public/sw.js',import.meta.url),'utf8'),sw);
+ await new Promise((resolve,reject)=>handlers.install({waitUntil:p=>p.then(resolve,reject)}));
+ assert.ok(cached.length>5);assert.ok(cached.every(path=>path.startsWith('/Cynthia-Video/public/')));
+ let response;handlers.fetch({request:{url:'https://kids.test'+media,method:'GET'},respondWith:r=>response=r});
+ assert.equal(streamed,true);assert.equal(await response.text(),'ok');
+});

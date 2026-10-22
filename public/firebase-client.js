@@ -11,7 +11,7 @@ export function friendlyError(error) {
   if (code === 'auth/user-disabled') return '這個帳號已停用，請聯絡家長。';
   if (code === 'auth/too-many-requests') return '嘗試次數過多，請稍後再登入。';
   if (code === 'auth/operation-not-allowed') return '請先在 Firebase Authentication 啟用電子郵件／密碼登入。';
-  if (code === 'auth/unauthorized-domain') return '請在 Firebase Authentication 授權網域加入 localhost。';
+  if (code === 'auth/unauthorized-domain') return '請在 Firebase Authentication 授權網域加入 ' + location.hostname + '。';
   if (code === 'auth/no-current-user') return '請家長先登入這台裝置。';
   if (code === 'kidstube/limit') return '檔案數量超過此次安全掃描上限，請家長確認儲存空間內容。';
   if (code === 'storage/retry-limit-exceeded' || code === 'auth/network-request-failed' || error instanceof TypeError) return '目前連不上雲端，請檢查網路後再試。';

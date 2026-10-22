@@ -132,7 +132,7 @@ if(cloudMode){
  $('upload').hidden=true;$('progress').hidden=true;$('localManagement').hidden=true;$('cloudManagement').hidden=false;
  $('cloudRefresh').onclick=()=>sync(true);
  navigator.serviceWorker?.addEventListener('message',async event=>{
-  if(!event.source||event.source.scriptURL!==new URL('/sw.js',location.href).href)return;
+  if(!event.source||event.source.scriptURL!==new URL('./sw.js',location.href).href)return;
   if(event.data?.type==='KIDSTUBE_AUTH_TOKEN'){
    const port=event.ports?.[0];if(!port)return;
    try{port.postMessage({token:await firebaseClient?.token(!!event.data.force)});}catch{port.postMessage({error:'auth-required'});}finally{port.close();}
@@ -152,10 +152,10 @@ if(cloudMode){
 }
 async function boot(){
  render();
- try{if(!('serviceWorker'in navigator))throw Error('不支援');await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;}
+ try{if(!('serviceWorker'in navigator))throw Error('不支援');await navigator.serviceWorker.register('./sw.js');await navigator.serviceWorker.ready;}
  catch{say('無法啟用播放服務，請使用 HTTPS 或 localhost 的一般瀏覽模式。');return;}
  if(!cloudMode){await sync(true);return;}
- try{const module=await import('/firebase-client.js');cloudErrorText=module.friendlyError;firebaseClient=await module.createFirebaseClient(globalThis.KIDSTUBE_SETTINGS,user=>{if(firebaseReady)cloudStateChanged(user);});await firebaseClient.ready;firebaseReady=true;await cloudStateChanged(firebaseClient.user);}
+ try{const module=await import('./firebase-client.js');cloudErrorText=module.friendlyError;firebaseClient=await module.createFirebaseClient(globalThis.KIDSTUBE_SETTINGS,user=>{if(firebaseReady)cloudStateChanged(user);});await firebaseClient.ready;firebaseReady=true;await cloudStateChanged(firebaseClient.user);}
  catch(error){const message=cloudErrorText(error);say(message);adminSay(message);render();}
 }
 boot();

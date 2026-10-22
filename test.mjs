@@ -2,7 +2,7 @@ import {test} from 'node:test';import assert from 'node:assert/strict';import {m
 import {readFile} from 'node:fs/promises';import vm from 'node:vm';
 test('Firebase Service Worker 不透過舊快取繞過登入讀取影片',async()=>{
  const handlers={},content=new Blob(['0123456789'],{type:'video/mp4'});let exists=true;
- const context={importScripts:()=>{},self:{location:{origin:'https://kids.test'},addEventListener:(type,fn)=>handlers[type]=fn},caches:{open:async()=>({match:async()=>exists?new Response(content):undefined})},URL,Response,fetch:async()=>{throw Error('offline');}};
+ const context={importScripts:()=>{},self:{location:{origin:'https://kids.test',href:'https://kids.test/sw.js'},addEventListener:(type,fn)=>handlers[type]=fn},caches:{open:async()=>({match:async()=>exists?new Response(content):undefined})},URL,Response,fetch:async()=>{throw Error('offline');}};
  vm.runInNewContext(await readFile(new URL('./public/sw.js',import.meta.url),'utf8'),context);
  async function get(range){let response;handlers.fetch({request:{url:'https://kids.test/media/demo.mp4',method:'GET',headers:new Headers(range?{Range:range}:{})},respondWith:p=>response=p});return response;}
  assert.equal((await get()).status,403);assert.equal((await get('bytes=2-4')).status,403);assert.equal((await get('bytes=-3')).status,403);exists=false;assert.equal((await get()).status,403);
