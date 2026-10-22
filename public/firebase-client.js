@@ -52,6 +52,15 @@ export async function createFirebaseClient(settings, onState) {
   }
   return {
     ready, token, catalog, discover,
+    async videoBlob(path, thumbnail = false){
+      await token();
+      if(!core.isVideo(path))throw Error('不支援的影片路徑');
+      const reference=storageSDK.ref(storage,path);
+      const limit=thumbnail?2*1024*1024:200*1024*1024;
+      if(!thumbnail){const metadata=await storageSDK.getMetadata(reference);if(Number(metadata.size)>limit)throw Error('此影片超過 200 MiB 備援播放上限，須先修復串流連線。');}
+      const blob=await storageSDK.getBlob(reference,limit);
+      return blob.slice(0,blob.size,'video/mp4');
+    },
     // 封面是小檔案，交由官方 SDK 帶登入憑證讀取，避免和影片串流混用。
     async poster(path){
       await token();

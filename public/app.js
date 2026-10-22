@@ -8,6 +8,7 @@ async function api(url,options={}){const r=await fetch(url,{...options,headers:{
 function shuffle(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 async function refreshDownloads(){const cache=await caches.open(MEDIA);downloaded=new Set((await cache.keys()).map(r=>new URL(r.url).pathname));}
 const media=v=>cloudMode?KidsTubeCloud.mediaURL(v.path,v.generation):`/media/${v.id}.mp4`;
+let fallbackPlaybackURL=null;
 let view='home',query='',recent=false,currentVideo=null;
 let favorites=new Set();try{favorites=new Set(JSON.parse(localStorage.getItem('kt-favorites')||'[]'));}catch{}
 const paths={home:'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',heart:'M12 21 3 12C-3 5 7-1 12 6 17-1 27 5 21 12Z',download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',refresh:'M20 7a9 9 0 1 0 1 9M20 2v6h-6',plus:'M12 4v16M4 12h16',play:'m9 5 11 7-11 7Z'};
@@ -18,19 +19,20 @@ const thumbCache='kt-thumbnails-v1',thumbQueue=[];let thumbActive=0;const object
 function thumbKey(v){return '/thumbnail/'+v.id;}
 async function makeThumbnail(v){
  const epoch=authEpoch;
- let cache;
+ let cache,thumbnailSource=null;
  if(cloudMode){
   const poster=await cloudThumbnail(v);if(poster)return poster;
-  if(!firebaseClient?.user||!navigator.onLine||!navigator.serviceWorker.controller)return null;
+  if(!firebaseClient?.user||!navigator.onLine)return null;
+  try{const blob=await firebaseClient.videoBlob(v.path,true);if(epoch!==authEpoch)return null;thumbnailSource=URL.createObjectURL(blob);}catch{return null;}
  }else{
   cache=await caches.open(thumbCache);const hit=await cache.match(thumbKey(v));if(hit)return hit;
   if(!navigator.onLine&&!downloaded.has(media(v)))return null;
  }
  const result=await new Promise(resolve=>{const video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='metadata';let finished=false;const timer=setTimeout(()=>finish(null),12000);
-  function finish(data){if(finished)return;finished=true;clearTimeout(timer);video.removeAttribute('src');video.load();resolve(data);}
+  function finish(data){if(finished)return;finished=true;clearTimeout(timer);video.removeAttribute('src');video.load();if(thumbnailSource)URL.revokeObjectURL(thumbnailSource);resolve(data);}
   video.onloadedmetadata=()=>{if((cloudMode&&epoch!==authEpoch)||!Number.isFinite(video.duration)||!video.duration){finish(null);return;}video.currentTime=Math.min(1,video.duration/3);};
   video.onseeked=()=>{try{const canvas=document.createElement('canvas');canvas.width=480;canvas.height=Math.round(480*video.videoHeight/video.videoWidth)||270;canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);const duration=Math.floor(video.duration);canvas.toBlob(blob=>finish(blob?{blob,duration}:null),'image/jpeg',.8);}catch{finish(null);}};
-  video.onerror=()=>finish(null);video.src=media(v);
+  video.onerror=()=>finish(null);video.src=thumbnailSource||media(v);
  });
  if(!result||(cloudMode&&epoch!==authEpoch))return null;
  const response=new Response(result.blob,{headers:{'Content-Type':'image/jpeg','X-Duration':String(result.duration)}});
@@ -75,17 +77,26 @@ async function sync(reorder=false){
 async function playVideo(v){
  if(cloudMode){if(!navigator.onLine){say('目前離線；這次雲端版本僅支援線上播放。');return;}if(!firebaseClient?.user){say('請家長先登入。');return;}if(!navigator.serviceWorker.controller){say('播放服務準備中，請關閉所有 KidsTube 視窗後重新開啟。');return;} }
 if(!navigator.onLine&&!downloaded.has(media(v))){say('這部尚未下載，連上網路後再觀看。');return;}
- currentVideo=v;$('favoritePlaying').textContent=favorites.has(v.id)?'已收藏 ✓':'收藏影片';$('recommendations').replaceChildren();videos.filter(item=>item.id!==v.id).slice(0,8).forEach(item=>$('recommendations').append(createCard(item)));$('playing').textContent=v.title;$('playStatus').textContent='';if(!$('player').open)$('player').showModal();
+ stop();currentVideo=v;$('favoritePlaying').textContent=favorites.has(v.id)?'已收藏 ✓':'收藏影片';$('recommendations').replaceChildren();videos.filter(item=>item.id!==v.id).slice(0,8).forEach(item=>$('recommendations').append(createCard(item)));$('playing').textContent=v.title;$('playStatus').textContent='';if(!$('player').open)$('player').showModal();
  if(cloudMode){
   try{
    const probe=await fetch(media(v),{headers:{Range:'bytes=0-0'},cache:'no-store'});
-   if(!probe.ok){const detail=await probe.text();$('playStatus').textContent='影片讀取失敗（HTTP '+probe.status+'）：'+detail.slice(0,180);return;}
+   if(!probe.ok){
+    const detail=await probe.text();
+    if(probe.status!==503){$('playStatus').textContent='影片讀取失敗（HTTP '+probe.status+'）：'+detail.slice(0,180);return;}
+    $('playStatus').textContent='串流連線失敗，正在透過 Firebase SDK 載入影片…';
+    const epoch=authEpoch,blob=await firebaseClient.videoBlob(v.path);
+    if(epoch!==authEpoch||currentVideo!==v||!$('player').open)return;
+    if(fallbackPlaybackURL)URL.revokeObjectURL(fallbackPlaybackURL);
+    fallbackPlaybackURL=URL.createObjectURL(blob);$('video').src=fallbackPlaybackURL;$('playStatus').textContent='';
+    await $('video').play();return;
+   }
    await probe.body?.cancel();
-  }catch(error){$('playStatus').textContent='影片連線失敗：'+error.message;return;}
+  }catch(error){$('playStatus').textContent='影片讀取失敗：'+(error.code||error.name)+': '+error.message;return;}
   if(currentVideo!==v||!$('player').open)return;
  }
  $('video').src=media(v);try{await $('video').play();}catch{if(!$('playStatus').textContent)$('playStatus').textContent='請按播放器的播放鍵；若仍失敗，請提供下方錯誤訊息。';}}
-function stop(){$('video').pause();$('video').removeAttribute('src');$('video').load();}
+function stop(){$('video').pause();$('video').removeAttribute('src');$('video').load();if(fallbackPlaybackURL){URL.revokeObjectURL(fallbackPlaybackURL);fallbackPlaybackURL=null;}}
 $('closePlayer').onclick=()=>$('player').close();$('player').addEventListener('close',()=>{stop();if(pendingSync){pendingSync=false;sync(true);}});$('video').onerror=()=>{if($('playStatus').textContent.includes('HTTP '))return;$('playStatus').textContent=cloudMode?'影片解碼失敗（MediaError '+($('video').error?.code||'未知')+'）：'+($('video').error?.message||'請確認影片使用 H.264／AAC 編碼。'):'播放失敗。請確認影片已完整下載，或連線重試。建議使用 H.264 + AAC MP4。';};
 function selectView(name){view=name;onlyOffline=name==='downloads';recent=false;query='';$('search').value='';render();window.scrollTo({top:0,behavior:'smooth'});}
 $('home').onclick=()=>selectView('home');$('favorites').onclick=()=>selectView('favorites');$('downloads').onclick=()=>selectView('downloads');$('menu').onclick=()=>document.body.classList.toggle('compact');

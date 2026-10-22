@@ -76,7 +76,7 @@ test('雲端缺少封面時擷取影片畫面，保留登入範圍且重用記�
  const source=await readFile(new URL('./public/app.js',import.meta.url),'utf8');
  const fn=source.slice(source.indexOf('async function makeThumbnail('),source.indexOf('function pumpThumbs('));
  let created=0;const posters=new Map();
- const context={Response,cloudMode:true,authEpoch:1,cloudPosters:posters,firebaseClient:{user:{uid:'test'}},navigator:{onLine:true,serviceWorker:{controller:{}}},cloudThumbnail:async v=>posters.get(v.id+':'+v.generation)?.clone()||null,media:()=>'/Cynthia-Video/public/_firebase/media/test.mp4',setTimeout,clearTimeout,document:{createElement(type){
+ const context={Response,URL,cloudMode:true,authEpoch:1,cloudPosters:posters,firebaseClient:{user:{uid:'test'},videoBlob:async(path,thumbnail)=>{assert.equal(thumbnail,true);return new Blob(['video']);}},navigator:{onLine:true,serviceWorker:{controller:{}}},cloudThumbnail:async v=>posters.get(v.id+':'+v.generation)?.clone()||null,media:()=>'/Cynthia-Video/public/_firebase/media/test.mp4',setTimeout,clearTimeout,document:{createElement(type){
   if(type==='canvas')return {getContext:()=>({drawImage(){}}),toBlob:callback=>callback(new Blob(['jpeg'],{type:'image/jpeg'}))};
   created++;return {duration:12,videoWidth:640,videoHeight:360,removeAttribute(){},load(){},set src(value){queueMicrotask(()=>this.onloadedmetadata());},set currentTime(value){queueMicrotask(()=>this.onseeked());}};
  }}};
@@ -84,4 +84,17 @@ test('雲端缺少封面時擷取影片畫面，保留登入範圍且重用記�
  const result=await context.makeThumbnail(item);assert.equal(result.headers.get('Content-Type'),'image/jpeg');assert.equal(result.headers.get('X-Duration'),'12');
  assert.equal(await (await context.makeThumbnail(item)).text(),'jpeg');assert.equal(created,1);
  posters.clear();context.firebaseClient.user=null;assert.equal(await context.makeThumbnail(item),null);assert.equal(created,1);
+});
+
+test('串流 503 轉用 SDK Blob 播放，401/403 不繞過授權',async()=>{
+ const source=await readFile(new URL('./public/app.js',import.meta.url),'utf8');
+ const fn=source.slice(source.indexOf('async function playVideo('),source.indexOf('function stop('));
+ for(const status of [503,403]){
+  const elements=new Map();const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',open:false,replaceChildren(){},showModal(){this.open=true;},play:async()=>{}});return elements.get(id);};
+  let reads=0;const v={id:'test',path:'video/a.mp4',title:'test'};
+  const context={cloudMode:true,navigator:{onLine:true,serviceWorker:{controller:{}}},firebaseClient:{user:{uid:'test'},videoBlob:async()=>{reads++;return new Blob(['video']);}},say(){},stop(){},media:()=>'/media',favorites:new Set(),videos:[v],currentVideo:null,authEpoch:1,fallbackPlaybackURL:null,URL,fetch:async()=>new Response('failure',{status}),$:el};
+  vm.runInNewContext(fn,context);await context.playVideo(v);
+  assert.equal(reads,status===503?1:0);
+  if(status===503)URL.revokeObjectURL(context.fallbackPlaybackURL);else assert.match(el('playStatus').textContent,/HTTP 403/);
+ }
 });
