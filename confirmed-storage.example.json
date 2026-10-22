@@ -1,0 +1,5 @@
+{
+  "uids": ["REPLACE_WITH_AUTHORIZED_UID"],
+  "paths": [],
+  "note": "paths 必須來自家長管理區顯示的實際 Storage 路徑。尚未取得前不可猜測或套用。"
+}

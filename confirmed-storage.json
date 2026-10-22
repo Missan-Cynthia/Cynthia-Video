@@ -1,0 +1,6 @@
+{
+  "uids": ["Lb376emYWyR8IHSt80OkoCr7bUh2"],
+  "prefixes": ["video"],
+  "paths": [],
+  "confirmation": "使用者提供 gs://enlightenment-2.firebasestorage.app/video；尚待登入後以 SDK 驗證實際物件清單。"
+}

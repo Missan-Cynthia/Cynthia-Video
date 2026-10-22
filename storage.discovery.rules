@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/enlightenment-2.firebasestorage.app/o {
+    function family() {
+      return request.auth != null && request.auth.uid in ['Lb376emYWyR8IHSt80OkoCr7bUh2'];
+    }
+    // 僅供第一次確認真實路徑。只允許白名單列出檔名，完全不開放檔案內容。
+    match /{path=**} {
+      allow list: if family();
+      allow get, create, update, delete: if false;
+    }
+  }
+}

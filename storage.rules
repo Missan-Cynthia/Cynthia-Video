@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/enlightenment-2.firebasestorage.app/o {
+    function family() {
+      return request.auth != null && request.auth.uid in ['Lb376emYWyR8IHSt80OkoCr7bUh2'];
+    }
+    // 白名單才可探索實際目錄；內容只開放下方已確認資料夾的影音及封面。
+    match /{path=**} {
+      allow list: if family();
+      allow create, update, delete: if false;
+    }
+    match /video/{file=**} {
+      allow get: if family() && resource.name.matches('.*[.]([mM][pP]4|[jJ][pP][eE]?[gG]|[pP][nN][gG]|[wW][eE][bB][pP])');
+    }
+  }
+}
