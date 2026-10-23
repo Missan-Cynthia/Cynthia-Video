@@ -1,7 +1,7 @@
 importScripts('./firebase-shared.js','./firebase-stream.js');
 const BASE = new URL('./', self.location.href).pathname;
 self.addEventListener('message',event=>{if(event.data?.type==='KIDSTUBE_ACTIVATE_UPDATE')event.waitUntil(self.skipWaiting());});
-const SHELL='kt-shell-firebase-v15',ASSETS=['/','/app.js','/style.css','/manifest.webmanifest','/icon-192.png','/icon-512.png','/firebase-shared.js','/firebase-client.js','/firebase-stream.js','/firebase-catalog.js'].map(path => BASE + path.slice(1));
+const SHELL='kt-shell-firebase-v16',ASSETS=['/','/app.js','/style.css','/manifest.webmanifest','/icon-192.png','/icon-512.png','/firebase-shared.js','/firebase-client.js','/firebase-stream.js','/firebase-catalog.js'].map(path => BASE + path.slice(1));
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>c.addAll(ASSETS.map(url=>new Request(url,{cache:"reload"})))));});
 self.addEventListener('activate',e=>{e.waitUntil((async()=>{for(const k of await caches.keys())if(k.startsWith('kt-shell-')&&k!==SHELL)await caches.delete(k);await self.clients.claim();})());});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(u.origin!==self.location.origin||e.request.method!=='GET')return;
@@ -10,7 +10,9 @@ self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(u.origin!==s
  if(u.pathname===BASE + 'firebase-settings.js')return;
  if(u.pathname.startsWith(BASE + 'api/'))return;
  if(u.pathname.startsWith(BASE + 'media/')){e.respondWith(new Response('本次僅支援登入後的雲端影片',{status:403,headers:{'Cache-Control':'no-store'}}));return;}
- if(ASSETS.includes(u.pathname))e.respondWith(caches.open(SHELL).then(async c=>(await c.match(u.pathname))||fetch(e.request)));
+ // index.html is the same launch document as the directory URL, including query variants.
+ const shellPath=u.pathname===BASE+'index.html'?BASE:u.pathname;
+ if(ASSETS.includes(shellPath))e.respondWith(caches.open(SHELL).then(async c=>(await c.match(shellPath))||fetch(e.request)));
 });
 
 
