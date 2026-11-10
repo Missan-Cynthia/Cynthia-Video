@@ -16,7 +16,7 @@ test('Pages 子路徑：manifest identity、啟動、scope 與 PNG 實際尺寸'
 });
 test('離線啟動別名、版本查詢與更新只清除 shell，保留影片及其他資料',async()=>{
  const handlers={},base='/Cynthia-Video/public/',deleted=[],matched=[];
- const context={URL,Response,importScripts(){},self:{location:{href:'https://kids.test'+base+'sw.js',origin:'https://kids.test'},clients:{claim:async()=>{}},addEventListener:(key,fn)=>handlers[key]=fn},caches:{keys:async()=>['kt-shell-firebase-v15','kt-shell-firebase-v16','kt-media-v1','kt-thumbs-v1','other'],delete:async key=>deleted.push(key),open:async()=>({match:async key=>{matched.push(key);return new Response('cached shell');}})},fetch:async()=>{throw Error('offline');}};
+ const context={URL,Response,importScripts(){},self:{location:{href:'https://kids.test'+base+'sw.js',origin:'https://kids.test'},clients:{claim:async()=>{}},addEventListener:(key,fn)=>handlers[key]=fn},caches:{keys:async()=>['kt-shell-firebase-v15','kt-shell-firebase-v16','kt-shell-firebase-v17','kt-media-v1','kt-thumbs-v1','other'],delete:async key=>deleted.push(key),open:async()=>({match:async key=>{matched.push(key);return new Response('cached shell');}})},fetch:async()=>{throw Error('offline');}};
  vm.runInNewContext(await readFile(new URL('./public/sw.js',import.meta.url),'utf8'),context);
  for(const path of ['','?version=15','index.html','index.html?source=home','app.js?v=15']){
   let response;handlers.fetch({request:{url:'https://kids.test'+base+path,method:'GET'},respondWith:value=>response=value});
@@ -24,5 +24,5 @@ test('離線啟動別名、版本查詢與更新只清除 shell，保留影片�
  }
  assert.deepEqual(matched,[base,base,base,base,base+'app.js']);
  let activation;handlers.activate({waitUntil:value=>activation=value});await activation;
- assert.deepEqual(deleted,['kt-shell-firebase-v15']);
+ assert.deepEqual(deleted,['kt-shell-firebase-v15','kt-shell-firebase-v16']);
 });

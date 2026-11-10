@@ -43,9 +43,42 @@ const thumbObserver=new IntersectionObserver(entries=>{for(const entry of entrie
 function createCard(v){const card=document.createElement('article');card.className='card';const thumb=document.createElement('button');thumb.className='thumbnail';thumb.setAttribute('aria-label','播放 '+v.title);const placeholder=document.createElement('span');placeholder.className='thumb-placeholder';placeholder.append(icon('play'));thumb.append(placeholder);thumb.onclick=()=>playVideo(v);thumb.videoData=v;thumbObserver.observe(thumb);
  const info=document.createElement('div');info.className='card-info';const avatar=document.createElement('span');avatar.className='channel-avatar';avatar.textContent='K';avatar.setAttribute('aria-hidden','true');const copy=document.createElement('div');copy.className='card-copy';const title=document.createElement('button');title.className='title-button';title.textContent=v.title;title.onclick=()=>playVideo(v);const meta=document.createElement('div');meta.className='meta';meta.textContent=v.category||'家庭頻道';meta.append(document.createElement('br'),document.createTextNode(downloaded.has(media(v))?'已下載 · 可離線播放':'家長精選'));const save=document.createElement('button');save.className='save-button'+(favorites.has(v.id)?' saved':'');save.textContent=favorites.has(v.id)?'★':'☆';save.setAttribute('aria-label',(favorites.has(v.id)?'取消收藏 ':'收藏 ')+v.title);save.setAttribute('aria-pressed',String(favorites.has(v.id)));save.onclick=()=>toggleFavorite(v);copy.append(title,meta);info.append(avatar,copy,save);card.append(thumb,info);return card;
 }
+function visibleVideos(){
+ const visible=videos.filter(v=>(!onlyOffline||downloaded.has(media(v)))&&(view!=='favorites'||favorites.has(v.id))&&v.title.toLocaleLowerCase().includes(query));
+ if(recent)visible.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+ return visible;
+}
+let playbackQueue=[],playedThisRound=new Set(),shufflePlayback=false,repeatMode='off';
+$('shufflePlayback').onclick=()=>{
+ shufflePlayback=!shufflePlayback;
+ $('shufflePlayback').setAttribute('aria-pressed',String(shufflePlayback));
+ $('shufflePlayback').textContent=shufflePlayback?'隨機播放：開啟':'隨機播放：關閉';
+};
+$('repeatPlayback').onchange=()=>{
+ repeatMode=$('repeatPlayback').value;
+ $('video').loop=repeatMode==='one';
+};
+$('video').addEventListener('ended',()=>{
+ if(!$('player').open||!currentVideo||repeatMode==='one')return;
+ if(!shufflePlayback&&repeatMode==='off')return;
+ const available=playbackQueue.filter(v=>navigator.onLine||(!cloudMode&&downloaded.has(media(v))));
+ let next;
+ if(shufflePlayback){
+  let remaining=available.filter(v=>!playedThisRound.has(v.id));
+  if(!remaining.length&&repeatMode==='all'){
+   playedThisRound.clear();
+   remaining=available.length>1?available.filter(v=>v.id!==currentVideo.id):available;
+  }
+  next=shuffle(remaining)[0];
+ }else{
+  const index=available.findIndex(v=>v.id===currentVideo.id);
+  next=available[index+1]||available[0];
+ }
+ if(next)playVideo(next);
+});
 function render(reorder=false){if(reorder)videos=shuffle(videos);thumbObserver.disconnect();thumbQueue.length=0;for(const url of objectURLs)URL.revokeObjectURL(url);objectURLs.clear();$('grid').replaceChildren();
  $('all').classList.toggle('selected',!onlyOffline&&!recent);$('offline').classList.toggle('selected',onlyOffline);$('recent').classList.toggle('selected',recent);for(const name of ['home','favorites','downloads'])$(name).classList.toggle('active',view===name);
- const visible=videos.filter(v=>(!onlyOffline||downloaded.has(media(v)))&&(view!=='favorites'||favorites.has(v.id))&&v.title.toLocaleLowerCase().includes(query));if(recent)visible.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+ const visible=visibleVideos();
  $('viewTitle').textContent=query?'搜尋結果':view==='favorites'?'收藏影片':onlyOffline?'已下載':'推薦影片';
  if(!visible.length){const p=document.createElement('p');p.className='empty';p.textContent=cloudMode&&!firebaseClient?.user?'請家長登入，開啟你的私人片庫。':cloudMode&&cloudCatalogError?cloudCatalogError:cloudMode&&cloudCatalogLoading?'正在讀取雲端影片…':query?'找不到符合的影片。':view==='favorites'?'按影片旁的 ☆，收藏喜歡的影片。':onlyOffline?'還沒有離線影片。請家長到管理區下載。':cloudMode?'雲端 video/ 資料夾尚未找到 MP4。':'尚未加入影片，請家長先上傳 MP4。';$('grid').append(p);}
  visible.forEach(v=>$('grid').append(createCard(v)));$('endLoader').hidden=visible.length===0;
@@ -75,7 +108,9 @@ async function sync(reorder=false){
 async function playVideo(v){
  if(cloudMode){if(!navigator.onLine){say('目前離線；這次雲端版本僅支援線上播放。');return;}if(!firebaseClient?.user){say('請家長先登入。');return;}if(!navigator.serviceWorker.controller){say('播放服務準備中，請關閉所有 KidsTube 視窗後重新開啟。');return;} }
 if(!navigator.onLine&&!downloaded.has(media(v))){say('這部尚未下載，連上網路後再觀看。');return;}
- stop();currentVideo=v;$('favoritePlaying').textContent=favorites.has(v.id)?'已收藏 ✓':'收藏影片';$('recommendations').replaceChildren();videos.filter(item=>item.id!==v.id).slice(0,8).forEach(item=>$('recommendations').append(createCard(item)));$('playing').textContent=v.title;$('playStatus').textContent='';if(!$('player').open)$('player').showModal();
+ if(!$('player').open){playbackQueue=visibleVideos();playedThisRound.clear();}
+ playedThisRound.add(v.id);
+ stop();currentVideo=v;$('favoritePlaying').textContent=favorites.has(v.id)?'已收藏 ✓':'收藏影片';$('recommendations').replaceChildren();playbackQueue.filter(item=>item.id!==v.id).slice(0,8).forEach(item=>$('recommendations').append(createCard(item)));$('playing').textContent=v.title;$('playStatus').textContent='';if(!$('player').open)$('player').showModal();
  if(cloudMode){
   try{
    const probe=await fetch(media(v),{headers:{Range:'bytes=0-0'},cache:'no-store'});
